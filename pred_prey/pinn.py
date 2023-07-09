@@ -107,6 +107,9 @@ class predprey_pinn:
         def normalize(id, unnormed, mins, maxes):
             return (unnormed - mins[id])/(maxes[id]-mins[id])
         
+        def un_normalize(id, normed, mins, maxes):
+            return normed*(maxes[id] - mins[id])+ mins[id]
+        
         t_dat = torch.tensor(data[0], dtype=torch.float).reshape(-1,1)
         x_dat = torch.tensor(data[1],dtype=torch.float)
         y_dat = torch.tensor(data[2], dtype=torch.float )
@@ -123,6 +126,18 @@ class predprey_pinn:
         x,y = torch.unbind(self.model(t_dat), dim = 1) 
         z1 = torch.mean((x - x_norm)**2)
         z2 = torch.mean((y- y_norm)**2)
+        
+        # Plot the predictions
+        x = un_normalize(0,x, mins, maxes)
+        y = un_normalize(1,y, mins, maxes)
+        plt.plot(t_dat.detach(), x.detach(), label = 'x pred')
+        plt.plot(t_dat.detach(), y.detach(), label = 'y pred')
+
+        plt.scatter(t_dat.detach(), x_dat, label = 'x data')
+        plt.scatter(t_dat.detach(), y_dat, label = 'y data' )
+        plt.legend()
+        plt.savefig("pinn_pred.png")
+        plt.close()
         return z1 + z2 
 
     def combined_loss(self):
@@ -186,29 +201,32 @@ if __name__ == "__main__":
         dy = delta*x*y - y*gamma
         return [dx, dy]
 
-    t = np.linspace(0,100,1000)
+    t = np.linspace(0,50,50)
+    t2 = np.linspace(0,100,200)
     sol = odeint(pp_ode,y0 =[10,10], t=t)
+    sol2 = odeint(pp_ode, y0=[10,10], t=t2)
 
     # plt.plot(t, sol[:,0])
     # plt.plot(t, sol[:,1])
 
     inp_dat = np.array([t, sol[:,0], sol[:,1]])
+    inp_dat2 = np.array([t2, sol2[:,0], sol2[:,1]]) 
     
     # test_inst = predprey_pinn(epochs=10, data= inp_dat, c0 =[10,5])
     # print(inp_dat.shape)
     # test_inst.adam_train()
     # test_inst.adam_train()
     
-    np.random.seed(0)
+    np.random.seed(1)
     ids = np.random.choice(range(inp_dat.shape[1]), size = 20)
     sample_data = inp_dat[:,ids]
     print(sample_data)
     print(sample_data.shape)
-    test_inst2 = predprey_pinn(epochs=10, data = sample_data, c0 =[10,10])
-    # test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,5])
+    # test_inst2 = predprey_pinn(epochs=10, data = sample_data, c0 =[10,10])
+    test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,10])
     for i in range(100):
         test_inst2.adam_train()
         # Compute the mean square error with respect to the reference points
-        mse = test_inst2.data_loss_more_points(data=inp_dat)
+        mse = test_inst2.data_loss_more_points(data=inp_dat2)
         # mse = test_inst2.data_loss()
         print("Mean square error: ", mse)
