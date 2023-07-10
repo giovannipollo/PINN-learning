@@ -38,59 +38,107 @@ class predprey_pinn:
     def __init__(self, epochs, data, c0):
         self.epochs = epochs
         torch.manual_seed(0)
+        # Two output because I predict prey and predator (x and y)
         self.model = Neural_net(n_out=2)
+        
+        # These 100 points are used for the loss function related to the differential equation
         self.domain = torch.linspace(0,int(max(data[0])),100, requires_grad=True).reshape(-1,1)
 
         self.lbfgs_optimizer = torch.optim.LBFGS(params = self.model.parameters(), lr = 0.001, max_iter = 500)
         self.adam_optimizer = torch.optim.Adam(params = self.model.parameters(), lr = 0.0001)
 
+        # Define the parameters of the lotka volterra model
         self.alpha = 1.1
         self.beta = 0.4
         self.delta = 0.1
         self.gamma = 0.4
 
+        # Extract the data from the structure
+        # It is organized as follows: [time, prey, predator]
         self.t_dat = torch.tensor(data[0], dtype=torch.float).reshape(-1,1)
         self.x_dat = torch.tensor(data[1],dtype=torch.float)
-        self.y_dat = torch.tensor(data[2], dtype=torch.float )
+        self.y_dat = torch.tensor(data[2], dtype=torch.float)
 
+        # Compute the max and min of the data to normalize them
         self.maxes = {}
         self.mins = {}
-
         for id,d in enumerate((self.x_dat, self.y_dat)):
             self.maxes[id] = max(d)
             self.mins[id] = min(d)
-
+        
+        # Normalize the data
         self.x_norm = self.normalize(0, self.x_dat)
         self.y_norm = self.normalize(1, self.y_dat)
 
+        # Normalize the initial condition
         x0 = self.normalize(0,c0[0])
         y0 = self.normalize(1,c0[1])
+        
+        # Define the initial condition tensor
         self.c0 = torch.tensor([x0,y0], dtype = torch.float)
 
 
     def normalize(self, id, unnormed):
+        """normalize the data
+
+        Args:
+            id (int): index of the data
+            unnormed (tensor): data to normalize 
+
+        Returns:
+            tensor: normalized data
+        """
         return (unnormed - self.mins[id])/(self.maxes[id]- self.mins[id])
 
     def un_normalize(self, id, normed):
+        """unnormalize the data
+        
+        Args:
+            id (int): index of the data
+            normed (tensor): data to unnormalize
+            
+        Returns:
+            tensor: unnormalized data
+        """
         return normed*(self.maxes[id] -self.mins[id])+ self.mins[id]
 
         
     def wrap_grad(self, f,x):
+        """Compute the gradient of f with respect to x
+
+        Args:
+            f (tensor): function to differentiate
+            x (tensor): variable of differentiation
+
+        Returns:
+            tensor: gradient of f with respect to x
+        """
         return torch.autograd.grad(f,x,
         grad_outputs=torch.ones_like(x),
         retain_graph=True,
         create_graph=True)[0]
 
     def de_loss(self):
+        """Compute the loss related to the differential equation
+        
+        Returns:
+            tensor: loss related to the differential equation
+        
+        """
+        
+        # Execute the inference on the domain (timeseries)
         pred = self.model(self.domain)
         x,y = (d.reshape(-1,1) for d in torch.unbind(pred, dim =1))
         
+        # Differentiate the output of the model with respect to the domain
         dx = self.wrap_grad(x, self.domain)
         dy = self.wrap_grad(y, self.domain)
 
+        # Unnormalize the data
         x = self.un_normalize(0,x)
         y = self.un_normalize(1,y)
 
+        # Compute the loss related to the differential equations and the initial condition
         ls0 = torch.mean((dx - (self.alpha*x -self.beta*x*y)/(self.maxes[0]-self.mins[0]) )**2)
         ls1 = torch.mean((dy -(self.delta*x*y - y*self.gamma)/(self.maxes[1]-self.mins[1]))**2)
         ic = torch.mean((self.c0-pred[0])**2)
@@ -98,12 +146,27 @@ class predprey_pinn:
         return ls0 + ls1 + ic
     
     def data_loss(self):
+        """Compute the loss (mean squared error) related to the data
+        
+        Returns:
+            tensor: loss related to the data
+        """
+        
         x,y = torch.unbind(self.model(self.t_dat), dim = 1)
         z1 = torch.mean((x - self.x_norm)**2)
         z2 = torch.mean((y- self.y_norm)**2)
         return z1 + z2
     
     def data_loss_more_points(self, data):
+        """Compute the loss (mean squared error) related to different data than the one used for the training
+        
+        Args:
+            data (list): list of data [time, prey, predator]
+        
+        Returns:
+            tensor: loss related to the data
+        
+        """
         def normalize(id, unnormed, mins, maxes):
             return (unnormed - mins[id])/(maxes[id]-mins[id])
         
