@@ -51,7 +51,7 @@ class predprey_pinn:
 
         self.t_dat = torch.tensor(data[0], dtype=torch.float).reshape(-1,1)
         self.x_dat = torch.tensor(data[1],dtype=torch.float)
-        self.y_dat = torch.tensor(data[2], dtype=torch.float )
+        self.y_dat = torch.tensor(data[2], dtype=torch.float)
 
         self.maxes = {}
         self.mins = {}
@@ -137,7 +137,7 @@ class predprey_pinn:
         plt.scatter(t_dat.detach(), x_dat, label = 'x data')
         plt.scatter(t_dat.detach(), y_dat, label = 'y data' )
         plt.legend()
-        plt.savefig("no_pinn_pred.png")
+        plt.savefig("pred_prey/no_pinn_pred.png")
         plt.close()
         return z1 + z2 
 
@@ -155,7 +155,7 @@ class predprey_pinn:
         plt.scatter(self.t_dat.detach(), self.x_dat, label = 'x data')
         plt.scatter(self.t_dat.detach(),self.y_dat, label = 'y data' )
         plt.legend()
-        plt.savefig("no_pinn.png")
+        plt.savefig("pred_prey/no_pinn.png")
         plt.close()
        
 
@@ -205,32 +205,27 @@ if __name__ == "__main__":
     t2 = np.linspace(0,100,200)
     sol = odeint(pp_ode,y0 =[10,10], t=t)
     sol2 = odeint(pp_ode, y0=[10,10], t=t2)
-
-    # plt.plot(t, sol[:,0])
-    # plt.plot(t, sol[:,1])
+    
 
     inp_dat = np.array([t, sol[:,0], sol[:,1]])
     inp_dat2 = np.array([t2, sol2[:,0], sol2[:,1]]) 
     
-    
-    # test_inst = predprey_pinn(epochs=10, data= inp_dat, c0 =[10,5])
-    # inp_dat.shape
-    # test_inst.adam_train()
-    # test_inst.adam_train()
-    # test_inst.adam_train()
-    # test_inst.adam_train()
-    # test_inst.adam_train()
-    
     np.random.seed(1)
     ids = np.random.choice(range(inp_dat.shape[1]), size = 20)
     sample_data = inp_dat[:,ids]
-    print(sample_data)
-    print(sample_data.shape)
+    
+    t_domain = np.linspace(0,50,100)
+    domain_sol = odeint(pp_ode, y0=[10,10], t=t_domain)
+    inp_data_domain = np.array([t_domain, domain_sol[:,0], domain_sol[:,1]])
+    # Add the domain_sol to the sample_data
+    new_sample_data = np.concatenate((sample_data, inp_data_domain), axis = 1)
+    print(new_sample_data.shape)
     # test_inst2 = predprey_pinn(epochs=10, data = sample_data, c0 =[10,10])
-    test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,10])
+    # test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,10])
+    test_inst2 = predprey_pinn(epochs=10, data = new_sample_data, c0 =[10,10])
     for i in range(100):
         test_inst2.adam_train()
         # Compute the mean square error with respect to the reference points
-        mse = test_inst2.data_loss_more_points(data=inp_dat2)
-        # mse = test_inst2.data_loss()
+        # mse = test_inst2.data_loss_more_points(data=inp_dat2)
+        mse = test_inst2.data_loss()
         print("Mean square error: ", mse)
