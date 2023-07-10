@@ -199,7 +199,7 @@ class predprey_pinn:
         plt.scatter(t_dat.detach(), x_dat, label = 'x data')
         plt.scatter(t_dat.detach(), y_dat, label = 'y data' )
         plt.legend()
-        plt.savefig("pinn_pred.png")
+        plt.savefig("pred_prey/pinn_pred.png")
         plt.close()
         return z1 + z2 
 
@@ -217,7 +217,7 @@ class predprey_pinn:
         plt.scatter(self.t_dat.detach(), self.x_dat, label = 'x data')
         plt.scatter(self.t_dat.detach(),self.y_dat, label = 'y data' )
         plt.legend()
-        plt.savefig("pinn.png")
+        plt.savefig("pred_prey/pinn.png")
         plt.close()
        
 
@@ -269,24 +269,16 @@ if __name__ == "__main__":
     sol = odeint(pp_ode,y0 =[10,10], t=t)
     sol2 = odeint(pp_ode, y0=[10,10], t=t2)
 
-    # plt.plot(t, sol[:,0])
-    # plt.plot(t, sol[:,1])
-
     inp_dat = np.array([t, sol[:,0], sol[:,1]])
     inp_dat2 = np.array([t2, sol2[:,0], sol2[:,1]]) 
-    
-    # test_inst = predprey_pinn(epochs=10, data= inp_dat, c0 =[10,5])
-    # print(inp_dat.shape)
-    # test_inst.adam_train()
-    # test_inst.adam_train()
-    
+
     np.random.seed(1)
     ids = np.random.choice(range(inp_dat.shape[1]), size = 20)
     sample_data = inp_dat[:,ids]
-    print(sample_data)
     print(sample_data.shape)
-    # test_inst2 = predprey_pinn(epochs=10, data = sample_data, c0 =[10,10])
-    test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,10])
+
+    test_inst2 = predprey_pinn(epochs=10, data = sample_data, c0 =[10,10])
+    # test_inst2 = predprey_pinn(epochs=10, data = inp_dat, c0 =[10,10])
     for i in range(100):
         test_inst2.adam_train()
         # Compute the mean square error with respect to the reference points
